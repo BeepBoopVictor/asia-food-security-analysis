@@ -1,0 +1,727 @@
+---
+title: "ASIA"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(MASS)
+library(flexdashboard)
+library(shiny)
+library(tidyverse)
+library(ggplot2)
+if (!require(wordcloud)) install.packages('wordcloud') 
+library(wordcloud)
+if (!require(GGally)) install.packages('GGally') 
+library(GGally)
+if (!require(openxlsx)) install.packages('openxlsx') 
+library(openxlsx)
+if (!require(pxR)) install.packages('pxR') 
+library(pxR)
+if (!require(patchwork)) install.packages('patchwork') 
+library(patchwork)
+if (!require(ggplot2)) install.packages('ggplot2') 
+library(ggplot2)
+if (!require(tidyverse)) install.packages('tidyverse') 
+library(tidyverse)
+library(scales)
+library(knitr)
+library(RColorBrewer)
+library(fpp3)
+library(dplyr)
+if (!require(highcharter)) install.packages('highcharter') 
+library(highcharter) 
+if (!require(fpp3)) install.packages('fpp3') 
+library(fpp3)
+if (!require(openxlsx)) install.packages('openxlsx') 
+library(openxlsx) 
+if (!require(leaflet)) install.packages('leaflet') 
+library(leaflet)  
+if (!require(geojsonio)) install.packages('geojsonio') 
+library(geojsonio) 
+if (!require(plotly)) install.packages('plotly') 
+library(plotly)
+if (!require(ggplot2)) install.packages('ggplot2') 
+library(ggplot2)
+if (!require(tidyverse)) install.packages('tidyverse') 
+library(tidyverse)
+library(DT)
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+ASIA_COUNTRIES <- read.xlsx("ASIA_COUNTRIES_1.xlsx") %>% as_tibble() %>% mutate(date = as.Date(date))
+
+gpdWorld <- read_csv("gpdWorld.csv", skip = 3) %>% select(!c(`Indicator Name`, `Indicator Code`, `...69`)) %>% pivot_longer("1960":"2023", names_to = "time", values_to = "gdpValue")
+
+ASIA_COUNTRIES_2 <- ASIA_COUNTRIES %>% mutate(date = substr(date, 0, 4)) %>% group_by(setting, iso3, date, indicator_name, subgroup) %>% summarise(estimate = mean(estimate))
+
+
+population <- read_csv("population.csv",skip = 3)  %>% select(!c(`Indicator Name`, `Indicator Code`, `...69`)) %>% pivot_longer("1960":"2023", names_to = "time", values_to = "population")
+
+Mix <- ASIA_COUNTRIES_2 %>% 
+  left_join(gpdWorld, by = join_by(iso3==`Country Code`, date==time)) %>% 
+  left_join(population, by = join_by(iso3==`Country Code`, date==time)) %>%
+  select(c(setting, subgroup, date, indicator_name, estimate, gdpValue, population)) %>%
+  mutate(gdpPCapita = gdpValue/population) %>% filter(date >= 1975) %>% 
+  pivot_wider(values_from = estimate, names_from = indicator_name) %>%
+  pivot_longer(gdpValue:`Subclinical vitamin A deficiency in preschool-age children (serum/plasma retinol <0.70 μmol/L) (%)`, values_to = "estimate", names_to = "indicator_name") %>%
+  filter(indicator_name != "Subclinical vitamin A deficiency in preschool-age children (serum/plasma retinol <0.70 μmol/L) (%)") %>% 
+  mutate(indicator_name = case_when(
+    indicator_name == "Infant mortality rate (deaths per 1000 live births)" ~ "Infant mortality rate(per 1000 births)",
+    indicator_name == "Under-five mortality rate (SDG 3.2.1) (per 1000 live births)" ~ "Under-five mortality rate (per 1000 births)",
+    indicator_name == "Obesity prevalence among children and adolescents (crude estimate) (%) - 10-19 years" ~ "Obesity prevalence % 10-19 years",
+    indicator_name == "Obesity prevalence among children and adolescents (crude estimate) (%) - 5-19 years" ~ "Obesity prevalence % 5-19 years",
+    indicator_name == "Obesity prevalence among children and adolescents (crude estimate) (%) - 5-9 years" ~ "Obesity prevalence % 5-9 years",
+    indicator_name == "Overweight prevalence among children and adolescents (crude estimate) (%) - 10-19 years" ~ "Overweight prevalence % 10-19 years",
+    indicator_name == "Overweight prevalence among children and adolescents (crude estimate) (%) - 5-19 years" ~ "Overweight prevalence % 5-19 years",
+    indicator_name == "Overweight prevalence among children and adolescents (crude estimate) (%) - 5-9 years" ~ "Overweight prevalence % 5-9 years",
+    indicator_name == "Thinness prevalence among children and adolescents (crude estimate) (%) - 10-19 years" ~ "Thinness prevalence % 10-19 years",
+    indicator_name == "Thinness prevalence among children and adolescents (crude estimate) (%) - 5-19 years" ~ "Thinness prevalence % 5-19 years",
+    indicator_name == "Thinness prevalence among children and adolescents (crude estimate) (%) - 5-9 years" ~ "Thinness prevalence % 5-9 years", 
+    indicator_name == "population" ~ "Population", 
+    indicator_name == "gdpValue" ~ "PIB",
+    indicator_name == "gdpPCapita" ~ "PIBxCapita",
+    indicator_name == "Adolescent birth rate (per 1000 women)" ~ "Adolescent birth rate (per 1000 women)"
+  ))
+
+tabla.global <- ASIA_COUNTRIES %>% filter(date >= "1975-01-01") %>% select(setting, date, indicator_name, subgroup, estimate, iso3) %>% dplyr::group_by(date, indicator_name, subgroup) %>% dplyr::summarise(estimate = sum(estimate)) %>% mutate(setting = "global", iso3="glb") %>% relocate(setting, .before = date)
+
+tabla.paises75 <- ASIA_COUNTRIES %>% filter(date >= "1975-01-01") %>% select(setting, date, indicator_name, subgroup, estimate, iso3) %>% dplyr::bind_rows(tabla.global) %>% mutate(indicator_name = case_when(
+    indicator_name == "Infant mortality rate (deaths per 1000 live births)" ~ "Infant mortality rate(per 1000 births)",
+    indicator_name == "Under-five mortality rate (SDG 3.2.1) (per 1000 live births)" ~ "Under-five mortality rate (per 1000 births)",
+    indicator_name == "Obesity prevalence among children and adolescents (crude estimate) (%) - 10-19 years" ~ "Obesity prevalence % 10-19 years",
+    indicator_name == "Obesity prevalence among children and adolescents (crude estimate) (%) - 5-19 years" ~ "Obesity prevalence % 5-19 years",
+    indicator_name == "Obesity prevalence among children and adolescents (crude estimate) (%) - 5-9 years" ~ "Obesity prevalence % 5-9 years",
+    indicator_name == "Overweight prevalence among children and adolescents (crude estimate) (%) - 10-19 years" ~ "Overweight prevalence % 10-19 years",
+    indicator_name == "Overweight prevalence among children and adolescents (crude estimate) (%) - 5-19 years" ~ "Overweight prevalence % 5-19 years",
+    indicator_name == "Overweight prevalence among children and adolescents (crude estimate) (%) - 5-9 years" ~ "Overweight prevalence % 5-9 years",
+    indicator_name == "Thinness prevalence among children and adolescents (crude estimate) (%) - 10-19 years" ~ "Thinness prevalence % 10-19 years",
+    indicator_name == "Thinness prevalence among children and adolescents (crude estimate) (%) - 5-19 years" ~ "Thinness prevalence % 5-19 years",
+    indicator_name == "Thinness prevalence among children and adolescents (crude estimate) (%) - 5-9 years" ~ "Thinness prevalence % 5-9 years",
+    indicator_name == "Subclinical vitamin A deficiency in preschool-age children (serum/plasma retinol <0.70 μmol/L) (%)" ~ "Vitamin A deficiency in preschool-age children"
+  ))
+
+geoj <- geojson_read("https://gist.githubusercontent.com/BeepBoopVictor/e3a15584dcd41811bf09d22b1c601c7f/raw/5ec48c16024512670d42dc10b480baaba3757281/custom.geo.json",  what = "sp")
+geoj_ti <- geoj %>% as_tibble()
+```
+
+Introducción
+=================================================
+
+Row {.tabset .tabset-fade}
+------------------------------------------------
+
+### Introducción
+
+```{r, echo=FALSE}
+renderUI({
+  tags$body(
+    div(
+      style = "height: 50vh; margin: 0; padding: 0; text-align: center; background: linear-gradient(10deg, #000080, #000033); color: white;",
+      div(style="height:30px;"),
+      h1(style="font-weight: bold", "Estudio de la salud en Asia:"),
+        p("Este trabajo es un análisis de la evolución de indicadores relacionados con la salud en el continente asiático desde 1975 hasta 2020, separados por sexo, país y edad."),
+      p("Los datos fueron recogidos de la página oficial de la ", a(href = "https://whoequity.shinyapps.io/heat/", "WHO"), " (World Health Organization), donde se encuentran separados en tablas por cada país."),
+      p("La temática principal de esta base de datos son los indicadores de salud reproductiva, maternal, neonata y de infancia; estos indicadores son los siguientes:"),
+      div(style="height:30px;"),
+      fluidRow(
+    column(
+      width = 3,
+      style = "height: 100px; margin-left: 12.5%;",
+      div(style="height: 100%; margin: 5px; padding: 5px; text-align: center; background-color: #000080; border: 2px solid white; border-radius: 10px", 
+          p(style="font-weight: bold", "Tasa de mortalidad infantil"), p("Número de fallecimientos por cada 1000 nacimientos.")),
+      div(style="height: 100%; margin: 5px; padding: 5px; text-align: center; background-color: #000080; border: 2px solid white; border-radius: 10px", 
+          p(style="font-weight: bold", "Tasa de mortalidad por debajo de cinco"), p("Número de fallecimientos por cada 1000 nacimientos."))
+    ),
+    column(
+      width = 3,
+      style = "height: 100px;",
+      div(style="height: 100%; margin: 5px; padding: 5px; text-align: center; background-color: #000080; border: 2px solid white; border-radius: 10px", 
+          p(style="font-weight: bold", "Tasa de embarazos adolescentes"), p("Embarazos por cada 1000 mujeres.")),
+      div(style="height: 100%; margin: 5px; padding: 5px; text-align: center; background-color: #000080; border: 2px solid white; border-radius: 10px", 
+          p(style="font-weight: bold", "Obesidad en niños y adolescentes"), p("Porcentaje de población obesa en dos grupos de 5-9-19 años."))
+    ),
+    column(
+      width = 3,
+      style = "height: 100px;",
+      div(style="height: 100%; margin: 5px; padding: 5px; text-align: center; background-color: #000080; border: 2px solid white; border-radius: 10px", 
+          p(style="font-weight: bold", "Sobrepeso en niños y adolescentes"), p("Porcentaje de población con sobrepeso en dos grupos de 5-9-19 años.")),
+      div(style="height: 100%; margin: 5px; padding: 5px; text-align: center; background-color: #000080; border: 2px solid white; border-radius: 10px", 
+          p(style="font-weight: bold", "Delgadez en niños y adolescentes"), p("Porcentaje de población con delgadez en dos grupos de 5-9-19 años."))
+    )
+  )
+    ),
+  div(
+    style = "height: 70vh;",
+    renderDT({
+  datatable(tabla.paises75 %>% pivot_wider(names_from = indicator_name, values_from = estimate) %>% select(setting:"Thinness prevalence % 5-9 years") %>% arrange(date)  %>% select(-"NA") %>% mutate_at(vars("Infant mortality rate(per 1000 births)":"Thinness prevalence % 5-9 years"), round, digits=2))
+})
+  )
+  )
+})
+
+```
+
+### Procesado de datos
+
+```{r}
+renderUI({
+  tags$body(
+    div(
+      style="display: flex;",
+      div(
+        style = "flex: 1; height: 90vh; width: 70vh; margin: 0; padding: 0; text-align: center; background: linear-gradient(10deg, #000080, #000033); color: white;",
+        
+        div(
+          div(style="height:30px;"),
+          h1(style="font-weight: bold", "Procesado de la tabla:"),
+          div(style="height:30px;"),
+          p("La base de datos contiene una tabla para cada país del mundo del que haya datos."),
+          p("De aquí extraemos 43 tablas, una por cada país de Asia. Al ser semejantes las agrupamos en una sola."),
+          div(style="height:30px;"),
+          h2(style="font-weight: bold", "Normalización de datos:"),
+          div(style="height:30px;"),
+          p("Al estudiar la tabla vemos que la cantidad de países por años aumenta hasta 1975, que se estabiliza en 43."),
+          p("Es a partir de ahí cuando filtramos los datos.")
+        ),
+        div(
+          style="margin: 5px; padding: 5px; text-align: center; background-color: #000080; border: 2px solid white; border-radius: 10px; width: 40%; justify-content: center; align-items: center; background-color: #add8e0; margin-left: 30%;",
+          sliderInput(
+              inputId = "age",
+              label = "Date:",
+              min = 1950,
+              max = 2020,
+              value = c(1975, 2020),
+              step = 1
+          )
+        ),
+        div(
+          div(style="height:30px;"),
+          h2(style="font-weight: bold", "Eliminación de columnas:"),
+          div(style="height:30px;"),
+          p("Habían muchos datos en las tablas que no valían para nada, tales como la fuente de los mismos, una abreviatura del indicador, "),
+          p("notas y demás compuestas casi enteramente por NAs..."),
+          p("La tabla mostrada en el apartado anterior es la versión hecha con pivot_wider de esta misma.")
+        )
+      ),
+      div(
+        style="flex: 1; height: 90vh; width: 30vh; margin: 0; padding: 0;",
+        div(
+          style = "height: 50%; width: 100%;",
+          renderPlot(
+            ASIA_COUNTRIES %>%
+  dplyr::group_by(date) %>%
+  dplyr::summarise(paises = n_distinct(setting)) %>%
+  mutate(date = format(date, "%Y")) %>% ggplot(aes(x=date, y = paises)) + geom_bar(stat="identity") + theme_bw() + theme(axis.text.x = element_blank())
+          )
+        ),
+        div(
+          style = "height: 50%; width: 100%; background-color: orange;",
+          renderPlot(
+ASIA_COUNTRIES %>% 
+  filter(indicator_name == "Infant mortality rate (deaths per 1000 live births)", date==paste0(input$age, "-01-01")) %>%
+  dplyr::group_by(setting, date) %>%
+  dplyr::summarise(estimate = mean(estimate)) %>%
+  ggplot(aes(y=reorder(setting, estimate), x=estimate, fill=setting))  + geom_boxplot() + labs(title="Análisis de la mortalidad infantil en Asia", subtitle = "Muertes por 1000 nacimientos", y="País", x="Valor estimado", color="Sexo") + theme_bw() + guides(fill = FALSE)
+          )
+        )
+      )
+    )
+  )
+})
+```
+
+Puntos
+================================================
+
+
+Column {.sidebar data-width=230}
+--------------------------------------------------
+
+
+```{r}
+selectInput(
+  inputId = "country",
+  label = "Country:",
+  choices = unique(tabla.paises75$setting),
+  selected = "Afghanistan"
+)
+
+selectInput(
+  inputId = "sex",
+  label = "Sex:",
+  choices = c("Male", "Female", "Both"),
+  selected = "Both"
+)
+
+selectInput(
+  inputId = "indicator",
+  label = "Indicator:",
+  choices = unique(tabla.paises75$indicator_name[tabla.paises75$subgroup %in% c("Male", "Female")]),
+  selected = "Infant mortality rate(per 1000 births)"
+)
+
+selectInput(
+  inputId = "age",
+  label = "Date:",
+  choices = unique(tabla.paises75$date),
+  selected = "2000-01-01"
+)
+```
+
+Row {data-height=650}
+------------------------------------------------
+
+### Línea temporal:
+
+```{r}
+highcharter::renderHighchart({
+  if (input$sex != "Both"){
+    tabla.paises75 %>% filter(setting == input$country, subgroup == input$sex, indicator_name == input$indicator) %>% 
+    highcharter::hchart("line", hcaes(x = date, y = estimate))
+  } else {
+    tabla.paises75 %>% filter(setting == input$country, indicator_name == input$indicator) %>% 
+    highcharter::hchart("line", hcaes(x = date, y = estimate, group = subgroup))
+  }
+})
+```
+
+### Espiral temporal:
+
+```{r}
+highcharter::renderHighchart({
+  if(input$sex == "Both"){
+    x <- tabla.paises75 %>% filter(setting == input$country, indicator_name==input$indicator)
+  
+    fecha = unique(x$date)
+  
+    datosmasc = x[x$subgroup == "Male",]
+    datosfem = x[x$subgroup == "Female",]
+  
+    highchart() %>% hc_chart(polar = TRUE,type = "column") %>% hc_xAxis(categories = fecha) %>% hc_add_series(data = datosmasc$estimate, name = "Male", stack = 0) %>% hc_add_series(data = datosfem$estimate, name = "Female", stack = 1)
+   
+  } else{
+   
+    x <- tabla.paises75 %>% filter(setting == input$country, indicator_name==input$indicator)
+  
+  fecha = unique(x$date)
+  
+  datos = x[x$subgroup == input$sex,]
+  
+  highchart() %>% hc_chart(polar = TRUE,type = "column") %>% hc_xAxis(categories = fecha) %>% hc_add_series(data = datos$estimate, name = input$sex, stack = 0)
+  }
+})
+```
+
+Row {data-height=350}
+------------------------------------------------
+
+### Mapa de calor:
+
+```{r}
+renderPlot({
+    tabla.paises75 %>% filter(indicator_name == input$indicator, setting != "global") %>% dplyr::group_by(setting, date) %>% dplyr::summarise(estimate = sum(estimate)) %>% na.omit() %>% ggplot(aes(setting, date, fill=estimate)) + geom_tile(color = "lightblue",
+            lwd = 0.1,
+            linetype = 1) + 
+    scale_fill_gradientn(colors = brewer.pal(5, 'YlOrRd'))+
+    theme(axis.text.x = element_text(angle = 45,hjust=1))
+
+})
+```
+
+
+
+
+Mapa
+================================================
+
+Column {.sidebar data-width=230}
+--------------------------------------------------
+
+```{r}
+selectInput(
+  inputId = "indicator",
+  label = "Indicator:",
+  choices = unique(Mix$indicator_name[Mix$subgroup %in% c("Male", "Female")]),
+  selected = "Infant mortality rate(per 1000 births)"
+)
+
+sliderInput(
+  inputId = "age",
+  label = "Date:",
+  min = 1975,
+  max = 2020,
+  value = 2000,
+  step = 1
+)
+
+selectInput(
+  inputId = "sex",
+  label = "Sex:",
+  choices = c("Male", "Female"),
+  selected = "Male"
+)
+
+```
+
+###
+
+```{r}
+renderTable({
+  a <- Mix %>% filter(indicator_name == input$indicator, subgroup == input$sex, date == input$age)
+  tibble(country = a$setting, value = round(a$estimate,2)) %>% arrange(desc(value))
+})
+```
+
+Row {.tabset .tabset-fade}
+------------------------------------------------
+
+### Mapa
+
+```{r}
+renderLeaflet({
+    minimo = Mix %>% filter(indicator_name == input$indicator) %>% select(estimate) %>% pull() %>% na.omit() %>% as.numeric() %>% min()
+    
+    maximo = Mix %>% filter(indicator_name == input$indicator) %>% select(estimate) %>% pull() %>% na.omit() %>% as.numeric() %>% max()
+
+      join <- left_join(geoj_ti, Mix %>% filter(subgroup == input$sex, indicator_name == input$indicator, date == input$age), by=join_by("iso_a3" == "iso3"))
+  
+  etiquetas <-paste("<strong> País: ",join$setting ,"</strong><br>% Indicator: " , join$indicator_name,"</strong> Estimate: ",round(join$estimate,2)) %>% 
+  lapply(htmltools::HTML)
+  
+  pal <- colorQuantile("YlOrRd", domain=seq(from=minimo,to=maximo,by=(maximo-minimo)/20), n = 20)
+  
+  geoj %>%
+    leaflet() %>%  
+    setView(lng = 125, lat = 56, zoom = 3) %>% 
+    addPolygons(
+      fillColor=~pal(join$estimate),
+    opacity = 1,
+    color = "white",
+    weight = 2,
+    dashArray = "3",
+    fillOpacity = 0.7,
+    highlightOptions = leaflet::highlightOptions( 
+      weight = 2,
+      color = rgb(0.2,0.2,0.2),
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE
+    ),
+      label = etiquetas
+    ) %>% 
+    
+  leaflet::addControl(input$indicator, position = "topright") %>% 
+    
+  leaflet::addLegend("topright", pal = pal, values = seq(from=minimo,to=maximo,by=(maximo-minimo)/20),
+    labFormat = function(type, cuts, p) {
+          n = length(cuts) 
+          x = (cuts[-n] + cuts[-1])/2
+          x=prettyNum(round(x,digits=2), big.mark = ",", scientific = FALSE)
+          as.character(x)
+        },
+    opacity = 1
+  )
+})
+```
+
+### Barras
+
+```{r}
+renderPlotly({
+  x <- Mix %>% filter(indicator_name == input$indicator, subgroup == input$sex, date == input$age) %>% ggplot(aes(x=setting, y=estimate, fill=setting)) + geom_bar(stat="identity") + theme_bw() + theme(axis.text.x = element_text(angle = 45,hjust=1))
+  ggplotly(x)
+})
+```
+
+
+
+Predicción
+==============================
+
+Column {.sidebar data-width=230}
+--------------------------------------------------
+
+```{r}
+selectInput(
+  inputId = "indicator",
+  label = "Indicator:",
+  choices = unique(Mix$indicator_name[Mix$subgroup %in% c("Male", "Female")]),
+  selected = "Infant mortality rate(per 1000 births)"
+)
+
+selectInput(
+  inputId = "country",
+  label = "Country:",
+  choices = unique(Mix$setting),
+  selected = "Afghanistan"
+)
+
+sliderInput(
+  inputId = "time",
+  label = "Prediction time:",
+  min = 1,
+  max = 20,
+  value = 10,
+  step = 1
+)
+```
+
+
+Column
+---
+
+### Male
+
+
+```{r}
+renderPlot({
+  t1 <- Mix %>% filter(setting == input$country, indicator_name == input$indicator)
+  asia_tsibble <- Mix %>% filter(setting == input$country, indicator_name == input$indicator, subgroup == "Male") %>% select(setting, date, estimate) %>% mutate(date = paste0(date, "-01-01")) %>% mutate(date = year(date)) %>% as_tsibble(index=date, key=setting) %>% na.omit()
+fit <- asia_tsibble %>% model(ARIMA(estimate, stepwise = FALSE, approx=FALSE))
+time = paste0(input$time, " years")
+prediccion <- fit |> forecast(h=time)
+prediccion
+if(max(asia_tsibble$estimate) > max(prediccion$.mean)){
+  prediccion |> autoplot(asia_tsibble)+ theme_bw() + ylim(0, max(t1$estimate))
+} else {
+  prediccion |> autoplot(asia_tsibble)+ theme_bw() + ylim(0, max(prediccion$.mean))
+}
+})
+```
+
+### Female
+
+```{r}
+renderPlot({
+  t1 <- Mix %>% filter(setting == input$country, indicator_name == input$indicator)
+  asia_tsibble <- Mix %>% filter(setting == input$country, indicator_name == input$indicator, subgroup == "Female") %>% select(setting, date, estimate) %>% mutate(date = paste0(date, "-01-01")) %>% mutate(date = year(date)) %>% as_tsibble(index=date, key=setting) %>% na.omit()
+fit <- asia_tsibble %>% model(ARIMA(estimate, stepwise = FALSE, approx=FALSE))
+time = paste0(input$time, " years")
+prediccion <- fit |> forecast(h=time)
+prediccion
+if(max(asia_tsibble$estimate) > max(prediccion$.mean)){
+  prediccion |> autoplot(asia_tsibble)+ theme_bw() + ylim(0, max(t1$estimate))
+} else {
+  prediccion |> autoplot(asia_tsibble)+ theme_bw() + ylim(0, max(prediccion$.mean))
+}
+})
+```
+
+
+Componentes
+==============================
+
+Row {data-height=650}
+-------------------------------------
+
+### Matriz
+
+```{r}
+renderHighchart({
+  Mix %>% na.omit() %>% group_by(setting, indicator_name) %>% summarise(estimate=mean(estimate))  %>% filter(setting != "global") %>% pivot_wider(names_from = indicator_name, values_from = estimate) %>% ungroup() %>% select(!c(setting)) %>% na.omit() %>% cor(use='complete.obs') %>% hchart()
+})
+```
+
+   
+### Componentes
+
+```{r}
+renderPlotly({
+  x <- Mix %>% na.omit() %>% group_by(setting, indicator_name) %>% summarise(estimate=mean(estimate)) %>% filter(setting != "global") %>% pivot_wider(names_from = indicator_name, values_from = estimate) %>% column_to_rownames(var="setting") %>% scale() %>% na.omit()
+  pca1 <- prcomp(x,scale = TRUE)
+  p <- tibble(
+  label=paste("PC",1:length(pca1$sdev)), 
+  varPercent = pca1$sdev^2/sum(pca1$sdev^2) * 100 
+) %>%
+  ggplot(aes(x=label,y=varPercent)) + 
+    geom_bar(stat = "identity") +
+    labs(x= "Componentes Principales", 
+         y= "Porcentaje varianza explicada") + theme_bw()
+ggplotly(p) 
+})
+```   
+    
+Row {data-height=450}
+-------------------------------------
+
+###
+
+```{r}
+renderHighchart({
+    x <- Mix %>% na.omit() %>%
+      group_by(setting, indicator_name) %>%
+      summarise(estimate=mean(estimate)) %>% 
+      pivot_wider(names_from = indicator_name, values_from = estimate) %>% na.omit() %>%
+      filter(setting != "global") %>%
+      column_to_rownames(var="setting") %>% 
+      scale() %>% na.omit()
+  pca1 <- prcomp(x,scale = TRUE)
+  hchart(pca1)
+})
+```
+
+
+Comparador
+=======================================
+
+Column {.sidebar data-width=230}
+--------------------------------------------------
+
+```{r}
+selectInput(
+  "x", 
+  label = "Indicator 1:",
+  choices = unique(Mix$indicator_name), 
+  selected = "Infant mortality rate(per 1000 births)"
+)
+
+selectInput(
+  "x_scale", 
+  label = "Scale Transform Indicator 1:",
+  choices = c("none",
+              "sqrt",    
+              "log"
+             ), 
+  selected = "none"
+)
+
+selectInput(
+  "y", 
+  label = "Indicator 2:",
+  choices = unique(Mix$indicator_name), 
+  selected = "PIB"
+)
+
+selectInput(
+  "y_scale", 
+  label = "Scale Transform Indicator 2:",
+  choices = c("none",
+              "log",
+              "boxcox"
+             ), 
+  selected = "none"
+)
+```
+
+###
+
+```{r}
+renderTable({
+  Mix2 <- Mix %>% pivot_wider(names_from = indicator_name, values_from = estimate)
+   # Creamos una tabla con los 2 indicadores 
+   tb <- tibble(
+      country = Mix2$setting,
+      x = Mix2[[which(names(Mix2)==input$x)]],
+      y = Mix2[[which(names(Mix2)==input$y)]]
+    ) 
+    tb <- tb %>% 
+          filter(is.na(x)!=TRUE & is.na(y)!=TRUE )
+  
+  # escalamos los indicadores de acuerdo con los parámetros de escalado   
+  if(input$x_scale=="sqrt") tb$x <- sqrt(tb$x)
+  if(input$x_scale=="log") tb$x <- log(tb$x)  
+  if(input$y_scale=="log") tb$y <- log(tb$y)  
+  if(input$y_scale=="boxcox"){
+    bc <- boxcox (y ~ x,data=tb) # Cálculo óptimo modelo Box-Cox 
+    lambda <- round(bc $ x [which.max (bc $ y)],digits=4)
+    if(lambda!=0){
+      tb$y <- tb$y^lambda/lambda
+    } else {
+      tb$y <- log(tb$y)
+    }
+  }
+  
+  # Cálculo regresión lineal después del escalado de las variables. 
+  fit <- lm(y ~ x,data=tb)
+ 
+  labels <- c("correlation",
+             "linear regression slope",
+             "linear regression independent") 
+  values <- c(round(cor(tb$x,tb$y),digits = 4),
+              fit$coefficients[2],
+              fit$coefficients[1])
+  
+  if(input$y_scale=="boxcox"){ 
+    labels <- append(labels,"boxcox lambda")
+    values <- append(values,round(lambda,digits = 4))
+  }
+    
+  tb2 <- tibble( parameter=labels,
+                 value=values)
+  tb2
+ 
+})
+```
+
+Row {.tabset .tabset-fade}
+------------------------------------------------
+
+### Scaled Indicators Comparison
+
+```{r} 
+renderPlotly({
+  Mix2 <- Mix %>% na.omit() %>% filter(as.numeric(date) > 2000, indicator_name %in% c(input$x, input$y)) %>% pivot_wider(names_from = indicator_name, values_from = estimate) %>% na.omit()
+  tb <- tibble(
+      country = Mix2$setting,
+      x = Mix2[[which(names(Mix2)==input$x)]],
+      y = Mix2[[which(names(Mix2)==input$y)]]
+    ) 
+    tb <- tb %>% 
+          filter(is.na(x)!=TRUE & is.na(y)!=TRUE )
+    
+  if(input$x_scale=="sqrt") tb$x <- sqrt(tb$x)
+  if(input$x_scale=="log") tb$x <- log(tb$x)  
+    
+  if(input$y_scale=="log") tb$y <- log(tb$y)  
+  if(input$y_scale=="boxcox"){
+    bc <- boxcox (y ~ x,data=tb)
+    lambda <- round(bc $ x [which.max (bc $ y)],digits=4)
+    if(lambda!=0){
+      tb$y <- tb$y^lambda/lambda
+    } else {
+      tb$y <- log(tb$y)
+    }
+  }
+  
+  fit <- lm(y ~ x,data=tb)
+  a <- fit$coefficients[2]
+  b <- fit$coefficients[1]
+  p <- tb %>%
+        ggplot(aes(x,y,color=country)) + 
+        geom_point() +
+        theme(legend.position = "none") +
+        labs(x= input$x, y= input$y)
+  
+  xmin <- layer_scales(p)$x$get_limits()[1]
+  xmax <- layer_scales(p)$x$get_limits()[2]
+  ymin <- layer_scales(p)$y$get_limits()[1]
+  ymax <- layer_scales(p)$y$get_limits()[2]
+  
+  if(a*xmin+b<ymin) xmin <- (ymin-b)/a
+  if(a*xmin+b>ymax) xmin <- (ymax-b)/a
+  if(a*xmax+b<ymin) xmax <- (ymin-b)/a
+  if(a*xmax+b>ymax) xmax <- (ymax-b)/a
+  
+  df <- data.frame(x1 = xmin, x2 = xmax, y1 = a*xmin+b, y2 = a*xmax+b)
+  
+  p2 <- p +
+        geom_segment(aes(x = x1, y = y1, xend = x2, yend = y2, color = "blue"), data = df) + theme_bw()
+  ggplotly(p2) 
+
+})
+```
+
+
+
+
+
+
+
+
+
+
+

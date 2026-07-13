@@ -1,0 +1,885 @@
+---
+title: "ASIA"
+author: "Víctor Gil Bernal"
+date: "2024-02-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+library(tidyverse)
+library(ggplot2)
+if (!require(wordcloud)) install.packages('wordcloud') 
+library(wordcloud)
+if (!require(RColorBrewer)) install.packages('RColorBrewer') 
+library(RColorBrewer)
+if (!require(GGally)) install.packages('GGally') 
+library(GGally)
+if (!require(openxlsx)) install.packages('openxlsx') 
+library(openxlsx)
+if (!require(pxR)) install.packages('pxR') 
+library(pxR)
+if (!require(patchwork)) install.packages('patchwork') 
+library(patchwork)
+if (!require(ggplot2)) install.packages('ggplot2') 
+library(ggplot2)
+if (!require(tidyverse)) install.packages('tidyverse') 
+library(tidyverse)
+library(scales)
+library(knitr)
+library(paletteer)
+library(RColorBrewer)
+library(fpp3)
+library(dplyr)
+if (!require(highcharter)) install.packages('highcharter') 
+library(highcharter) 
+if (!require(fpp3)) install.packages('fpp3') 
+library(fpp3)
+if (!require(RColorBrewer)) install.packages('RColorBrewer') 
+library(RColorBrewer)
+if (!require(openxlsx)) install.packages('openxlsx') 
+library(openxlsx) 
+if (!require(leaflet)) install.packages('leaflet') 
+library(leaflet)  
+if (!require(geojsonio)) install.packages('geojsonio') 
+library(geojsonio) 
+if (!require(plotly)) install.packages('plotly') 
+library(plotly)
+if (!require(ggplot2)) install.packages('ggplot2') 
+library(ggplot2)
+if (!require(tidyverse)) install.packages('tidyverse') 
+library(tidyverse)
+if (!require(gganimate)) install.packages('gganimate') 
+library(gganimate)
+library(paletteer)
+```
+
+```{r, echo=FALSE}
+ASIA_COUNTRIES <- read.xlsx("ASIA_COUNTRIES_1.xlsx") %>% as_tibble() %>% mutate(date = as.Date(date))
+
+gpdWorld <- read_csv("gpdWorld.csv", skip = 3) %>% select(!c(`Indicator Name`, `Indicator Code`, `...69`)) %>% pivot_longer("1960":"2023", names_to = "time", values_to = "gdpValue")
+
+ASIA_COUNTRIES_2 <- ASIA_COUNTRIES %>% mutate(date = substr(date, 0, 4)) %>% group_by(setting, iso3, date, indicator_name) %>% summarise(estimate = mean(estimate))
+ASIA_COUNTRIES_3 <- ASIA_COUNTRIES %>% mutate(date = substr(date, 0, 4)) %>% group_by(setting, iso3, date, indicator_name, subgroup) %>% summarise(estimate = mean(estimate))
+
+
+population <- read_csv("population.csv",skip = 3)  %>% select(!c(`Indicator Name`, `Indicator Code`, `...69`)) %>% pivot_longer("1960":"2023", names_to = "time", values_to = "population")
+
+Mix <- ASIA_COUNTRIES_2 %>% 
+  left_join(gpdWorld, by = join_by(iso3==`Country Code`, date==time)) %>% 
+  left_join(population, by = join_by(iso3==`Country Code`, date==time)) %>%
+  select(c(setting, date, indicator_name, estimate, gdpValue, population)) %>%
+  mutate(gdpPCapita = gdpValue/population) %>% filter(date >= 1975) %>% 
+  pivot_wider(values_from = estimate, names_from = indicator_name) %>%
+  pivot_longer(gdpValue:`Subclinical vitamin A deficiency in preschool-age children (serum/plasma retinol <0.70 μmol/L) (%)`, values_to = "estimate", names_to = "indicator_name") %>%
+  filter(indicator_name != "Subclinical vitamin A deficiency in preschool-age children (serum/plasma retinol <0.70 μmol/L) (%)") %>% 
+  mutate(indicator_name = case_when(
+    indicator_name == "Infant mortality rate (deaths per 1000 live births)" ~ "Infant mortality rate(per 1000 births)",
+    indicator_name == "Under-five mortality rate (SDG 3.2.1) (per 1000 live births)" ~ "Under-five mortality rate (per 1000 births)",
+    indicator_name == "Obesity prevalence among children and adolescents (crude estimate) (%) - 10-19 years" ~ "Obesity prevalence % 10-19 years",
+    indicator_name == "Obesity prevalence among children and adolescents (crude estimate) (%) - 5-19 years" ~ "Obesity prevalence % 5-19 years",
+    indicator_name == "Obesity prevalence among children and adolescents (crude estimate) (%) - 5-9 years" ~ "Obesity prevalence % 5-9 years",
+    indicator_name == "Overweight prevalence among children and adolescents (crude estimate) (%) - 10-19 years" ~ "Overweight prevalence % 10-19 years",
+    indicator_name == "Overweight prevalence among children and adolescents (crude estimate) (%) - 5-19 years" ~ "Overweight prevalence % 5-19 years",
+    indicator_name == "Overweight prevalence among children and adolescents (crude estimate) (%) - 5-9 years" ~ "Overweight prevalence % 5-9 years",
+    indicator_name == "Thinness prevalence among children and adolescents (crude estimate) (%) - 10-19 years" ~ "Thinness prevalence % 10-19 years",
+    indicator_name == "Thinness prevalence among children and adolescents (crude estimate) (%) - 5-19 years" ~ "Thinness prevalence % 5-19 years",
+    indicator_name == "Thinness prevalence among children and adolescents (crude estimate) (%) - 5-9 years" ~ "Thinness prevalence % 5-9 years", 
+    indicator_name == "population" ~ "Population", 
+    indicator_name == "gdpValue" ~ "PIB",
+    indicator_name == "gdpPCapita" ~ "PIBxCapita",
+    indicator_name == "Adolescent birth rate (per 1000 women)" ~ "Adolescent birth rate (per 1000 women)"
+  ))
+
+Mix2 <- ASIA_COUNTRIES_3 %>% 
+  left_join(gpdWorld, by = join_by(iso3==`Country Code`, date==time)) %>% 
+  left_join(population, by = join_by(iso3==`Country Code`, date==time)) %>%
+  select(c(setting, subgroup, date, indicator_name, estimate, gdpValue, population)) %>%
+  mutate(gdpPCapita = gdpValue/population) %>% filter(date >= 1975) %>% 
+  pivot_wider(values_from = estimate, names_from = indicator_name) %>%
+  pivot_longer(gdpValue:`Subclinical vitamin A deficiency in preschool-age children (serum/plasma retinol <0.70 μmol/L) (%)`, values_to = "estimate", names_to = "indicator_name") %>%
+  filter(indicator_name != "Subclinical vitamin A deficiency in preschool-age children (serum/plasma retinol <0.70 μmol/L) (%)") %>% 
+  mutate(indicator_name = case_when(
+    indicator_name == "Infant mortality rate (deaths per 1000 live births)" ~ "Infant mortality rate(per 1000 births)",
+    indicator_name == "Under-five mortality rate (SDG 3.2.1) (per 1000 live births)" ~ "Under-five mortality rate (per 1000 births)",
+    indicator_name == "Obesity prevalence among children and adolescents (crude estimate) (%) - 10-19 years" ~ "Obesity prevalence % 10-19 years",
+    indicator_name == "Obesity prevalence among children and adolescents (crude estimate) (%) - 5-19 years" ~ "Obesity prevalence % 5-19 years",
+    indicator_name == "Obesity prevalence among children and adolescents (crude estimate) (%) - 5-9 years" ~ "Obesity prevalence % 5-9 years",
+    indicator_name == "Overweight prevalence among children and adolescents (crude estimate) (%) - 10-19 years" ~ "Overweight prevalence % 10-19 years",
+    indicator_name == "Overweight prevalence among children and adolescents (crude estimate) (%) - 5-19 years" ~ "Overweight prevalence % 5-19 years",
+    indicator_name == "Overweight prevalence among children and adolescents (crude estimate) (%) - 5-9 years" ~ "Overweight prevalence % 5-9 years",
+    indicator_name == "Thinness prevalence among children and adolescents (crude estimate) (%) - 10-19 years" ~ "Thinness prevalence % 10-19 years",
+    indicator_name == "Thinness prevalence among children and adolescents (crude estimate) (%) - 5-19 years" ~ "Thinness prevalence % 5-19 years",
+    indicator_name == "Thinness prevalence among children and adolescents (crude estimate) (%) - 5-9 years" ~ "Thinness prevalence % 5-9 years", 
+    indicator_name == "population" ~ "Population", 
+    indicator_name == "gdpValue" ~ "PIB",
+    indicator_name == "gdpPCapita" ~ "PIBxCapita",
+    indicator_name == "Adolescent birth rate (per 1000 women)" ~ "Adolescent birth rate (per 1000 women)"
+  ))
+
+tabla.global <- ASIA_COUNTRIES %>% filter(date >= "1975-01-01") %>% select(setting, date, indicator_name, subgroup, estimate, iso3) %>% dplyr::group_by(date, indicator_name, subgroup) %>% dplyr::summarise(estimate = sum(estimate)) %>% mutate(setting = "global", iso3="glb") %>% relocate(setting, .before = date)
+
+tabla.paises75 <- ASIA_COUNTRIES %>% filter(date >= "1975-01-01") %>% select(setting, date, indicator_name, subgroup, estimate, iso3) %>% dplyr::bind_rows(tabla.global) %>% mutate(indicator_name = case_when(
+    indicator_name == "Infant mortality rate (deaths per 1000 live births)" ~ "Infant mortality rate(per 1000 births)",
+    indicator_name == "Under-five mortality rate (SDG 3.2.1) (per 1000 live births)" ~ "Under-five mortality rate (per 1000 births)",
+    indicator_name == "Obesity prevalence among children and adolescents (crude estimate) (%) - 10-19 years" ~ "Obesity prevalence % 10-19 years",
+    indicator_name == "Obesity prevalence among children and adolescents (crude estimate) (%) - 5-19 years" ~ "Obesity prevalence % 5-19 years",
+    indicator_name == "Obesity prevalence among children and adolescents (crude estimate) (%) - 5-9 years" ~ "Obesity prevalence % 5-9 years",
+    indicator_name == "Overweight prevalence among children and adolescents (crude estimate) (%) - 10-19 years" ~ "Overweight prevalence % 10-19 years",
+    indicator_name == "Overweight prevalence among children and adolescents (crude estimate) (%) - 5-19 years" ~ "Overweight prevalence % 5-19 years",
+    indicator_name == "Overweight prevalence among children and adolescents (crude estimate) (%) - 5-9 years" ~ "Overweight prevalence % 5-9 years",
+    indicator_name == "Thinness prevalence among children and adolescents (crude estimate) (%) - 10-19 years" ~ "Thinness prevalence % 10-19 years",
+    indicator_name == "Thinness prevalence among children and adolescents (crude estimate) (%) - 5-19 years" ~ "Thinness prevalence % 5-19 years",
+    indicator_name == "Thinness prevalence among children and adolescents (crude estimate) (%) - 5-9 years" ~ "Thinness prevalence % 5-9 years",
+    indicator_name == "Subclinical vitamin A deficiency in preschool-age children (serum/plasma retinol <0.70 μmol/L) (%)" ~ "Vitamin A deficiency in preschool-age children"
+  ))
+```
+
+[Enlace cuadro de mandos](https://10.22.143.222:3838/sample-apps/a2416/shiny.Rmd)
+
+# Introducción:
+
+Este proyecto trata sobre el análisis de la salud reproductiva, maternal, neonata e infantil en Asia, extraída de la base de datos de la WHO (World Health Organization) con el mismo nombre, relacionado con datos sobre la evolución de población y PIB en estos países.
+
+En el siguiente documento se analizarán la evolución anual de fenómenos como la mortalidad infantil, el cambio de hábitos alimenticios en la juventud, tales como la delgadez, la obesidad y el sobrepeso y embarazos adolescentes.
+
+## Análisis de la base de datos:
+
+La tabla se compone de una columna de valores estimados según una columna por cada país, otra por año, otra por cada indicador y otra por sexo. A esta tabla original se le han añadido los valores de PIB, PIB per capita y población.
+
+Primeramente vamos a visualizar los datos en crudo, con el objetivo de analizar outliers y posibles inconscistencias en la base de datos. Este es un gráfico de puntos con el ratio de mortalidad infantil por sexo cada mil nacimientos y el ratio de muertes de menores de cinco años por sexo y mil nacimientos.
+
+```{r, message=FALSE}
+p1 <- ASIA_COUNTRIES %>% 
+  filter(indicator_name == "Infant mortality rate (deaths per 1000 live births)") %>%
+  dplyr::group_by(date, subgroup) %>%
+  dplyr::summarize(estimate = mean(estimate)) %>%
+  ggplot(aes(x = date, y = estimate)) +
+    geom_point(aes(color = subgroup)) + ylim(c(0, 250)) + scale_x_date(labels = date_format("%Y"), date_breaks = "4 year")+ theme_bw() + labs(title="Análisis de la media de mortalidad infantil en Asia", subtitle = "Muertes por 1000 nacimientos", x="Año", y="Valor estimado", color="Sexo") + theme(axis.text.x = element_text(angle = 45,hjust=1)) 
+
+p2 <- ASIA_COUNTRIES %>% 
+  filter(indicator_name == "Under-five mortality rate (SDG 3.2.1) (per 1000 live births)") %>%
+  dplyr::group_by(date, subgroup) %>%
+  dplyr::summarize(estimate = mean(estimate)) %>%
+  ggplot(aes(x = date, y = estimate)) +
+    geom_point(aes(color = subgroup)) + ylim(c(0,250))+ scale_x_date(labels = date_format("%Y"), date_breaks = "4 year")+ theme_bw() + labs(title="Análisis de la media de mortalidad infantil en Asia", subtitle = "Muertes de menores de cinco años por 1000 nacimientos", x="Año", y="Valor estimado", color="Sexo") + theme(axis.text.x = element_text(angle = 45,hjust=1))
+
+g1 <- ASIA_COUNTRIES %>% 
+  filter(indicator_name == "Infant mortality rate (deaths per 1000 live births)") %>%
+  dplyr::group_by(date, subgroup) %>%
+  dplyr::summarize(estimate = sum(na.omit(estimate))) %>%
+  ggplot(aes(x = date, y = estimate)) +
+    geom_point(aes(color = subgroup)) + scale_x_date(labels = date_format("%Y"), date_breaks = "4 year")+ theme_bw() + labs(title="Análisis del sumatorio de mortalidad infantil en Asia", subtitle = "Muertes por 1000 nacimientos", x="Año", y="Valor estimado", color="Sexo") + theme(axis.text.x = element_text(angle = 45,hjust=1))
+
+g2 <- ASIA_COUNTRIES %>% 
+  filter(indicator_name == "Under-five mortality rate (SDG 3.2.1) (per 1000 live births)") %>%
+  dplyr::group_by(date, subgroup) %>%
+  dplyr::summarize(estimate = sum(na.omit(estimate))) %>%
+  ggplot(aes(x = date, y = estimate)) +
+    geom_point(aes(color = subgroup)) + scale_x_date(labels = date_format("%Y"), date_breaks = "4 year")+ theme_bw() + labs(title="Análisis del sumatorio de mortalidad infantil en Asia", subtitle = "Muertes de menores de cinco años por 1000 nacimientos", x="Año", y="Valor estimado", color="Sexo") + theme(axis.text.x = element_text(angle = 45,hjust=1))
+```
+
+```{r, fig.width=10, fig.height=5}
+wrap_plots(p1, p2, ncol=2)
+wrap_plots(g1, g2, ncol=2)
+```
+
+En los gráficos se puede apreciar que tanto la media como la suma anual de muertes infantiles ha disminuido por años, pero notamos un repunte alrededor del año 1975.
+
+Esto se debe a que a la base de datos se han ido añadiendo países casi anualmente hasta 1975, cuando se terminan de añadir los últimos. Llegando a ser 43 de los 51 países que componen el continente asiático.
+
+La siguiente tabla lo demuestra, en ella se puede apreciar 9 países en 1950 y 43 en el presente:
+
+```{r}
+paises <- ASIA_COUNTRIES %>%
+  dplyr::group_by(date) %>%
+  dplyr::summarise(paises = n_distinct(setting)) %>%
+  mutate(date = format(date, "%Y"))
+```
+
+```{r}
+head(paises)
+tail(paises)
+```
+
+Este aumento se puede visualizar en la siguiente tabla:
+
+```{r}
+ASIA_COUNTRIES %>%
+  dplyr::group_by(date) %>%
+  dplyr::summarise(paises = n_distinct(setting)) %>%
+  mutate(date = format(date, "%Y")) %>% ggplot(aes(x=date, y = paises)) + geom_bar(stat="identity") + theme_bw() + theme(axis.text.x = element_blank())
+```
+
+Los siguientes boxplots ilustran la diferencia que existe entre los valores de mortalidad en los países añadidos al principio de los datos y Oriente Medio, que produce el cambio drástico visto en las gráficas anteriores.
+
+```{r, message=FALSE, warning=FALSE}
+m1 <- ASIA_COUNTRIES %>% 
+  filter(indicator_name == "Infant mortality rate (deaths per 1000 live births)") %>%
+  dplyr::group_by(setting, date) %>%
+  dplyr::summarise(estimate = mean(estimate)) %>%
+  ggplot(aes(y=reorder(setting, estimate), x=estimate, fill=setting))  + geom_boxplot() + labs(title="Análisis de la mortalidad infantil en Asia", subtitle = "Muertes por 1000 nacimientos", y="País", x="Valor estimado", color="Sexo") + theme_bw() + guides(fill = FALSE)
+
+
+m2 <- ASIA_COUNTRIES %>% 
+  filter(indicator_name == "Infant mortality rate (deaths per 1000 live births)") %>%
+  filter(as.Date("1950-01-01") <= date & as.Date("1958-01-01") >= date) %>%
+  dplyr::group_by(setting, date) %>%
+  dplyr::summarise(estimate = mean(estimate)) %>%
+  ggplot(aes(y=reorder(setting, estimate), x=estimate, fill=setting)) +
+  geom_boxplot() + theme_bw()   + labs(title="Análisis de la mortalidad infantil en Asia", subtitle = "Muertes por 1000 nacimientos (1950-1958)", y="País", x="Valor estimado", color="Sexo") + guides(fill = FALSE)
+
+m3 <- ASIA_COUNTRIES %>% 
+  filter(indicator_name == "Infant mortality rate (deaths per 1000 live births)") %>%
+  filter(as.Date("1959-01-01") <= date & as.Date("1990-01-01") >= date) %>%
+  dplyr::group_by(setting, date) %>%
+  dplyr::summarise(estimate = mean(estimate)) %>%
+  ggplot(aes(y=reorder(setting, estimate), x=estimate, fill=setting)) +
+  geom_boxplot() + theme_bw()   + labs(title="Análisis de la mortalidad infantil en Asia", subtitle = "Muertes por 1000 nacimientos (1959-1990)", y="País", x="Valor estimado", color="Sexo") + guides(fill = FALSE)
+
+m4 <- ASIA_COUNTRIES %>% 
+  filter(indicator_name == "Infant mortality rate (deaths per 1000 live births)") %>%
+  filter(as.Date("1991-01-01") <= date & as.Date("2021-01-01") >= date) %>%
+  dplyr::group_by(setting, date) %>%
+  dplyr::summarise(estimate = mean(estimate)) %>%
+  ggplot(aes(y=reorder(setting, estimate), x=estimate, fill=setting)) +
+  geom_boxplot() + theme_bw()   + labs(title="Análisis de la mortalidad infantil en Asia", subtitle = "Muertes por 1000 nacimientos (1991-2020)", y="País", x="Valor estimado", color="Sexo") + guides(fill = FALSE)
+```
+
+```{r}
+m1
+```
+
+```{r, fig.width=10, fig.height=5}
+wrap_plots(m2, m3, ncol=2)
+```
+
+```{r}
+m4
+```
+
+Una vez estudiado esto, vamos a visualizar los datos a partir de 1975 realizando unas regresiones lineales:
+
+```{r, message=FALSE}
+p3 <- ASIA_COUNTRIES %>% 
+  filter(indicator_name == "Infant mortality rate (deaths per 1000 live births)") %>%
+  filter(as.Date("1975-01-01") <= date) %>%
+  dplyr::group_by(date, subgroup) %>%
+  dplyr::summarize(estimate = mean(estimate)) %>%
+  ggplot(aes(x = date, y = estimate)) +
+    geom_point(aes(color = subgroup)) + xlim(c(0, 250)) + scale_x_date(labels = date_format("%Y"), date_breaks = "4 year")+ theme_bw() + labs(title="Análisis de la media de mortalidad infantil en Asia", subtitle = "Muertes por 1000 nacimientos", x="Año", y="Valor estimado", color="Sexo") + geom_smooth(method=lm, se=FALSE, col="lightgoldenrod") + theme(axis.text.x = element_text(angle = 45,hjust=1))
+
+p4 <- ASIA_COUNTRIES %>% 
+  filter(indicator_name == "Under-five mortality rate (SDG 3.2.1) (per 1000 live births)") %>%
+  filter(as.Date("1975-01-01") <= date) %>%
+  dplyr::group_by(date, subgroup) %>%
+  dplyr::summarize(estimate = mean(estimate)) %>%
+  ggplot(aes(x = date, y = estimate)) +
+    geom_point(aes(color = subgroup)) + xlim(c(0,250))+ scale_x_date(labels = date_format("%Y"), date_breaks = "4 year")+ theme_bw() + labs(title="Análisis de la media de mortalidad infantil en Asia", subtitle = "Muertes de menores de cinco años por 1000 nacimientos", x="Año", y="Valor estimado", color="Sexo") + geom_smooth(method=lm, se=FALSE, col="lightgoldenrod") + theme(axis.text.x = element_text(angle = 45,hjust=1))
+
+g3 <- ASIA_COUNTRIES %>% 
+  filter(indicator_name == "Infant mortality rate (deaths per 1000 live births)") %>%
+  filter(as.Date("1975-01-01") <= date) %>%
+  dplyr::group_by(date, subgroup) %>%
+  dplyr::summarize(estimate = sum(na.omit(estimate))) %>%
+  ggplot(aes(x = date, y = estimate)) +
+    geom_point(aes(color = subgroup)) + scale_x_date(labels = date_format("%Y"), date_breaks = "4 year")+ theme_bw() + labs(title="Análisis del sumatorio de mortalidad infantil en Asia", subtitle = "Muertes por 1000 nacimientos", x="Año", y="Valor estimado", color="Sexo") + geom_smooth(method=lm, se=FALSE, col="lightgoldenrod") + theme(axis.text.x = element_text(angle = 45,hjust=1))
+
+g4 <- ASIA_COUNTRIES %>% 
+  filter(indicator_name == "Under-five mortality rate (SDG 3.2.1) (per 1000 live births)") %>%
+  filter(as.Date("1975-01-01") <= date) %>%
+  dplyr::group_by(date, subgroup) %>%
+  dplyr::summarize(estimate = sum(na.omit(estimate))) %>%
+  ggplot(aes(x = date, y = estimate)) +
+    geom_point(aes(color = subgroup)) + scale_x_date(labels = date_format("%Y"), date_breaks = "4 year")+ theme_bw() + labs(title="Análisis del sumatorio de mortalidad infantil en Asia", subtitle = "Muertes de menores de cinco años por 1000 nacimientos", x="Año", y="Valor estimado", color="Sexo") + geom_smooth(method=lm, se=FALSE, col="lightgoldenrod") + theme(axis.text.x = element_text(angle = 45,hjust=1))
+```
+
+```{r, fig.width=10, fig.height=5}
+wrap_plots(p3, p4, ncol=2)
+wrap_plots(g3, g4, ncol=2)
+```
+
+Una vez siendo homogéneos los valores de la tabla podemos ver más claramente la tendencia de disminución en los valores.
+
+También se puede apreciar la diferencia de principio a fin con un gráfico circular, que enfrenta a los últimos valores con los primeros.
+
+```{r, message=FALSE}
+ASIA_COUNTRIES %>% 
+  filter(indicator_name == "Infant mortality rate (deaths per 1000 live births)") %>%
+  filter(subgroup == "Female" | subgroup == "Male") %>%
+  filter(as.Date("1975-01-01") <= date ) %>%
+  dplyr::group_by(date, subgroup) %>%
+  dplyr::summarise(estimate = mean(na.omit(estimate))) %>%
+  mutate(labels = scales::percent(estimate/sum(estimate))) %>%
+  ggplot(aes(x=date,y=estimate ,fill=subgroup)) +
+    geom_col() +
+    coord_polar(theta = "x") + theme_bw() + labs(title="Análisis de la mortalidad infantil en Asia", subtitle = "Muertes por 1000 nacimientos", y="Año", x="Valor estimado", fill="Sexo")
+```
+
+```{r}
+h1 <- ASIA_COUNTRIES %>% 
+  filter(indicator_name == "Infant mortality rate (deaths per 1000 live births)") %>%
+  filter(as.Date("1975-01-01") <= date)
+h2 <- ASIA_COUNTRIES %>% 
+  filter(indicator_name == "Under-five mortality rate (SDG 3.2.1) (per 1000 live births)") %>%
+  filter(as.Date("1975-01-01") <= date)
+```
+
+En el histograma se puede apreciar que los valores más comunes rondan alrededor de quience muertes por cada mil nacimientos.
+
+```{r}
+hist(h2$estimate, xlim = c(min(c(h1$estimate, h2$estimate)), max(c(h1$estimate, h2$estimate))), breaks=100, ylim=c(0, 450), col="darkorchid1", density = 50, border="black", main = "Histograma de fallecimientos", xlab="Estimado por mil nacimientos", ylab="Frecuencia")
+hist(h1$estimate, add=TRUE, breaks=100, ylim=c(0, 450), col="lightgoldenrod2", density=200, border="black")
+legend("topright", legend=c("Fallecimiento de infantes", "Fallecimientos de menores de 5 años"), col=c("lightgoldenrod2", "darkorchid1"), pt.cex=2, pch=15)
+```
+
+Aquí un análisis de huellas de calor sobre el tema, se pude apreciar visualmente como disminuye el valor con el paso de los años.
+
+```{r}
+heatmap <- ASIA_COUNTRIES %>%
+  filter(indicator_name == "Infant mortality rate (deaths per 1000 live births)") %>%
+  filter(as.Date("1975-01-01") <= date) %>%
+  dplyr::group_by(date, setting) %>%
+  dplyr::summarise(estimate = sum(na.omit(estimate))) %>%
+  mutate(estimate = round(estimate)) %>%
+  ggplot(aes(setting, date, fill=estimate)) +
+  geom_tile(lwd=0.5, linetype = 1) +
+  scale_fill_gradientn(colors = brewer.pal(9, 'YlOrRd'))+ theme_bw() +
+  theme(axis.text.x = element_text(angle = 45,hjust=1)) + labs(title="Mapa de calor sobre la mortalidad infantil", subtitle = "Sumatorio de los valores por países y año", x="Año", y="Porcentaje estimado")
+heatmap
+```
+
+## Análisis sobre la evolución del peso en Asia
+
+Este análisis de puntos trata sobre el porcentaje de delgadez, sobrepeso y obesidad estimado por años en el continente asiático.
+
+```{r, fig.align='center'}
+ThinessASIA <- ASIA_COUNTRIES %>% 
+  filter(
+    indicator_name %in% c(
+      "Thinness prevalence among children and adolescents (crude estimate) (%) - 10-19 years",
+      "Thinness prevalence among children and adolescents (crude estimate) (%) - 5-9 years")
+  ) %>% dplyr::group_by(date) %>% dplyr::summarise(estimate = mean(estimate))
+
+THASIA1 <- ASIA_COUNTRIES %>% filter(indicator_name == "Thinness prevalence among children and adolescents (crude estimate) (%) - 10-19 years") %>% dplyr::group_by(date) %>% dplyr::summarise(estimate = mean(estimate))
+THASIA3 <- ASIA_COUNTRIES %>% filter(indicator_name == "Thinness prevalence among children and adolescents (crude estimate) (%) - 5-9 years") %>% dplyr::group_by(date) %>% dplyr::summarise(estimate = mean(estimate))
+
+ObesityASIA <- ASIA_COUNTRIES %>% 
+  filter(
+    indicator_name %in% c(
+      "Obesity prevalence among children and adolescents (crude estimate) (%) - 10-19 years",
+      "Obesity prevalence among children and adolescents (crude estimate) (%) - 5-9 years")
+  ) %>% dplyr::group_by(date) %>% dplyr::summarise(estimate = mean(estimate))
+
+OB1 <- ASIA_COUNTRIES %>% filter(indicator_name == "Obesity prevalence among children and adolescents (crude estimate) (%) - 10-19 years") %>% dplyr::group_by(date) %>% dplyr::summarise(estimate = mean(estimate))
+OB3 <- ASIA_COUNTRIES %>% filter(indicator_name == "Obesity prevalence among children and adolescents (crude estimate) (%) - 5-9 years") %>% dplyr::group_by(date) %>% dplyr::summarise(estimate = mean(estimate))
+
+OVASIA <- ASIA_COUNTRIES %>%
+  filter(
+    indicator_name %in% c(
+      "Overweight prevalence among children and adolescents (crude estimate) (%) - 10-19 years",
+      "Overweight prevalence among children and adolescents (crude estimate) (%) - 5-19 years",
+      "Overweight prevalence among children and adolescents (crude estimate) (%) - 5-9 years")
+  ) %>% dplyr::group_by(date) %>% dplyr::summarise(estimate = mean(estimate))
+
+OV1 <- ASIA_COUNTRIES %>% filter(indicator_name == "Overweight prevalence among children and adolescents (crude estimate) (%) - 10-19 years") %>% dplyr::group_by(date) %>% dplyr::summarise(estimate = mean(estimate))
+OV2 <- ASIA_COUNTRIES %>% filter(indicator_name == "Overweight prevalence among children and adolescents (crude estimate) (%) - 5-9 years") %>% dplyr::group_by(date) %>% dplyr::summarise(estimate = mean(estimate))
+
+
+ggplot() +
+  geom_point(data = THASIA1, aes(x=date, y=estimate, color = "Thiness 10-19 years")) +
+  geom_point(data = THASIA3, aes(x=date, y=estimate, color = "Thiness 5-9 years")) +
+  geom_point(data = OV1, aes(x=date, y=estimate, color = "Overweight 10- 19 years")) +
+  geom_point(data = OV2, aes(x=date, y=estimate, color = "Overweight 5-9 years")) +
+  geom_point(data = OB1, aes(x=date, y=estimate, color = "Obesity 10-19 years")) +
+  geom_point(data = OB3, aes(x=date, y=estimate, color = "Obesity 5-9 years")) +
+  geom_line(data = ThinessASIA, aes(x=date, y = estimate, color="Thiness")) + 
+  geom_line(data = ObesityASIA, aes(x=date, y = estimate, color = "Obesity")) + 
+  geom_line(data = OVASIA, aes(x=date, y = estimate, color="Overweight")) +
+  theme_bw() + labs(title="Análisis de la obesidad e infrapeso en Asia", subtitle = "Media del porcentaje de población en población entre 5-19 años", x="Año", y="Porcentaje estimado") +
+  scale_color_manual(values = c("Thiness" = "blue", "Obesity" = "red", "Overweight" = "goldenrod", "Thiness 10-19 years" = "cyan", "Thiness 5-9 years" = "cyan3", "Obesity 10-19 years" = "pink1", "Obesity 5-9 years"= "pink4", "Overweight 10- 19 years" = "goldenrod1", "Overweight 5-9 years" = "goldenrod4"))
+```
+
+```{r, message=FALSE, warning=FALSE}
+ASIA_COUNTRIES_75 <- ASIA_COUNTRIES %>%
+  filter(as.Date("1975-01-01")<=date | as.Date("2016-01-01")>=date)
+
+
+ASIA_COUNTRIES_75_THINESS <- ASIA_COUNTRIES_75 %>%
+  filter(
+    indicator_name %in% c(
+      "Thinness prevalence among children and adolescents (crude estimate) (%) - 10-19 years",
+      "Thinness prevalence among children and adolescents (crude estimate) (%) - 5-9 years")) %>% dplyr::group_by(date, setting) %>% dplyr::summarise(estimate=mean(estimate)) %>% select(date=date, population=estimate, location=setting) %>% as_tsibble(index=date, key=location)
+
+
+ASIA_COUNTRIES_75_OVER <- ASIA_COUNTRIES_75 %>%
+  filter(indicator_name %in% c(
+      "Overweight prevalence among children and adolescents (crude estimate) (%) - 10-19 years",
+      "Overweight prevalence among children and adolescents (crude estimate) (%) - 5-9 years")) %>% dplyr::group_by(date, setting) %>% dplyr::summarise(estimate=mean(estimate)) %>% select(date=date, population=estimate, location=setting) %>% as_tsibble(index=date, key=location)
+
+ASIA_COUNTRIES_75_OBES <- ASIA_COUNTRIES_75 %>%
+  filter(
+    indicator_name %in% c(
+      "Obesity prevalence among children and adolescents (crude estimate) (%) - 10-19 years",
+      "Obesity prevalence among children and adolescents (crude estimate) (%) - 5-9 years")
+  ) %>% dplyr::group_by(date, setting) %>% dplyr::summarise(estimate=mean(estimate)) %>% select(date=date, population=estimate, location=setting) %>% as_tsibble(index=date, key=location)
+```
+
+Los siguientes gráficos muestran el aumento por países de la delgadez, obesidad y sobrepeso utilizando la función autoplot
+
+Estos no nos proporcionan mucha información más que ver la tendencia indiscriminada de cada país.
+
+```{r, fig.width=10, fig.height=15, message=FALSE, warning=FALSE}
+wrap_plots(
+  ASIA_COUNTRIES_75_THINESS %>% autoplot() + guides(color=FALSE, fill=FALSE) + labs(title = "Delgadez en Asia por país", x="año", y="Porcentaje") + theme_bw(),
+ASIA_COUNTRIES_75_OVER %>% autoplot() + guides(color=FALSE, fill=FALSE) + labs(title = "Sobrepeso en Asia por país", x="año", y="Porcentaje") + theme_bw(),
+  ASIA_COUNTRIES_75_OBES %>% autoplot() + guides(color=FALSE, fill=FALSE) + labs(title = "Obesidad en Asia por país", x="año", y="Porcentaje") + theme_bw(),
+   nrow=3)
+
+```
+
+# Análisis de la correlación:
+
+A continuación analizaremos la correlación entre las tres variables.
+
+```{r, message=FALSE}
+tsibblesAnuales <- dplyr::bind_rows(ASIA_COUNTRIES %>%
+  filter(
+    indicator_name %in% c(
+      "Thinness prevalence among children and adolescents (crude estimate) (%) - 10-19 years",
+      "Thinness prevalence among children and adolescents (crude estimate) (%) - 5-9 years")) %>%
+  dplyr::group_by(date) %>%
+  dplyr::summarise(population = mean(na.omit(estimate))) %>%
+  mutate(indicator =  "Thiness"),
+
+ASIA_COUNTRIES %>%
+  filter(indicator_name %in% c(
+      "Overweight prevalence among children and adolescents (crude estimate) (%) - 10-19 years",
+      "Overweight prevalence among children and adolescents (crude estimate) (%) - 5-9 years")) %>%
+  dplyr::group_by(date) %>%
+  dplyr::summarise(population = mean(na.omit(estimate))) %>%
+  mutate(indicator =  "Overweight"),
+
+ASIA_COUNTRIES %>%
+  filter(
+    indicator_name %in% c(
+      "Obesity prevalence among children and adolescents (crude estimate) (%) - 10-19 years",
+      "Obesity prevalence among children and adolescents (crude estimate) (%) - 5-9 years")) %>%
+  dplyr::group_by(date) %>%
+  dplyr::summarise(population = mean(na.omit(estimate))) %>%
+  mutate(indicator =  "Obesity")) %>% as_tsibble(index=date, key=indicator)
+
+tsibblesAnuales %>%
+  pivot_wider(values_from=population, names_from = indicator) |>
+  GGally::ggpairs(columns= 2:4) + theme_bw()
+```
+
+```{r}
+Mix %>% na.omit() %>% group_by(setting, indicator_name) %>% summarise(estimate=mean(estimate)) %>% select(indicator_name, estimate) %>% pivot_wider(names_from = indicator_name, values_from = estimate) %>% na.omit() %>% ungroup() %>% select(!setting) %>% cor(use='complete.obs') %>% hchart()
+```
+
+Como se puede apreciar en ella la delgadez es casi perfectamente opuesta con respecto a la obesidad y el sobrepeso, sin embargo estas dos últimas tienen una correlación casi perfecta.
+
+# PCA:
+
+Vamos a estudiar el análisis de componentes para ver qué variables discriminan mejor y cuales no.
+
+```{r}
+x <- Mix %>% na.omit() %>% group_by(setting, indicator_name) %>% summarise(estimate=mean(estimate)) %>% pivot_wider(names_from = indicator_name, values_from = estimate) %>% na.omit() %>% column_to_rownames(var="setting")  %>% scale()
+pca1 <- prcomp(x,scale = TRUE)
+  p <- tibble(
+  label=paste("PC",1:length(pca1$sdev)), 
+  varPercent = pca1$sdev^2/sum(pca1$sdev^2) * 100 
+) %>%
+  ggplot(aes(x=label,y=varPercent)) + 
+    geom_bar(stat = "identity") +
+    labs(x= "Componentes Principales", 
+         y= "Porcentaje varianza explicada")
+ggplotly(p) 
+
+#x <- tabla.paises75 %>% na.omit() %>% group_by(setting, indicator_name) %>% summarise(estimate=mean(estimate)) %>% filter(setting != "global") %>% pivot_wider(names_from #= indicator_name, values_from = estimate) %>% column_to_rownames(var="setting") %>% select(!c(`Vitamin A deficiency in preschool-age children`)) %>% scale()
+#  pca1 <- prcomp(x,scale = TRUE)
+#  p <- tibble(
+#  label=paste("PC",1:length(pca1$sdev)), 
+#  varPercent = pca1$sdev^2/sum(pca1$sdev^2) * 100 
+#) %>%
+#  ggplot(aes(x=label,y=varPercent)) + 
+#    geom_bar(stat = "identity") +
+#    labs(x= "Componentes Principales", 
+#         y= "Porcentaje varianza explicada")
+#ggplotly(p) 
+```
+
+Mirando el gráfico vemos que la variable que mejor discrimina es el PIB, seguido por la tasa de delgadez independientemente de su rango de edad y por la tasa de obesidad.
+
+```{r}
+
+data <- Mix %>% filter(date=="2000") %>% na.omit() %>% select(setting, indicator_name, estimate) %>% pivot_wider(names_from = indicator_name, values_from = estimate) %>% na.omit() %>% ungroup() %>% select(!c(iso3, date)) %>% column_to_rownames(var = "setting")
+
+x <- prcomp(data, scale = TRUE)
+
+hchart(x)
+```
+
+# Visualización del mapa:
+
+Al igual que con los gráficos en espiral anteriormente vistos estos gráficos son muy esclarecedores a la hora de mostrar la diferencia abrupta de valores como mostraremos ahora con las tasas de obesidad y delgadez.
+
+```{r}
+geoj <- geojson_read("https://gist.githubusercontent.com/BeepBoopVictor/e3a15584dcd41811bf09d22b1c601c7f/raw/5ec48c16024512670d42dc10b480baaba3757281/custom.geo.json",  what = "sp")
+geoj_ti <- geoj %>% as_tibble()
+minimo = tabla.paises75 %>% filter(setting != "global", indicator_name == "Overweight prevalence % 5-19 years") %>% select(estimate) %>% pull() %>% na.omit() %>% as.numeric() %>% min()
+    
+maximo = tabla.paises75 %>% filter(setting != "global", indicator_name == "Overweight prevalence % 5-19 years") %>% select(estimate) %>% pull() %>% na.omit() %>% as.numeric() %>% max()
+
+join <- left_join(geoj_ti, tabla.paises75 %>% filter(subgroup == "Male", indicator_name == "Overweight prevalence % 5-19 years", date == paste0("1978", "-01-01")), by=join_by("iso_a3" == "iso3"))
+  
+etiquetas <-paste("<strong> País: ",join$setting ,"</strong><br>% Indicator: " , join$indicator_name,"</strong> Estimate: ",round(join$estimate,2)) %>% 
+  lapply(htmltools::HTML)
+  
+pal <- colorQuantile("YlOrRd", domain=seq(from=minimo,to=maximo,by=(maximo-minimo)/20), n = 20)
+  
+geoj %>%
+    leaflet() %>%  
+    setView(lng = 125, lat = 56, zoom = 2) %>% 
+    addPolygons(
+      fillColor=~pal(join$estimate),
+    opacity = 1,
+    color = "white",
+    weight = 2,
+    dashArray = "3",
+    fillOpacity = 0.7,
+    highlightOptions = leaflet::highlightOptions( 
+      weight = 2,
+      color = rgb(0.2,0.2,0.2),
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE
+    ),
+      label = etiquetas
+    ) %>% 
+    
+leaflet::addControl("Overweight prevalence % 5-19 years", position = "topright") %>% 
+  leaflet::addLegend("topright", pal = pal, values = seq(from=minimo,to=maximo,by=(maximo-minimo)/20),
+    labFormat = function(type, cuts, p) {
+          n = length(cuts) 
+          x = (cuts[-n] + cuts[-1])/2
+          x=prettyNum(round(x,digits=2), big.mark = ",", scientific = FALSE)
+          as.character(x)
+        },
+    opacity = 1
+  )
+
+join <- left_join(geoj_ti, tabla.paises75 %>% filter(subgroup == "Male", indicator_name == "Overweight prevalence % 5-19 years", date == paste0("2015", "-01-01")), by=join_by("iso_a3" == "iso3"))
+  
+etiquetas <-paste("<strong> País: ",join$setting ,"</strong><br>% Indicator: " , join$indicator_name,"</strong> Estimate: ",round(join$estimate,2)) %>% 
+  lapply(htmltools::HTML)
+  
+pal <- colorQuantile("YlOrRd", domain=seq(from=minimo,to=maximo,by=(maximo-minimo)/20), n = 20)
+
+
+geoj %>%
+    leaflet() %>%  
+    setView(lng = 125, lat = 56, zoom = 2) %>% 
+    addPolygons(
+      fillColor=~pal(join$estimate),
+    opacity = 1,
+    color = "white",
+    weight = 2,
+    dashArray = "3",
+    fillOpacity = 0.7,
+    highlightOptions = leaflet::highlightOptions( 
+      weight = 2,
+      color = rgb(0.2,0.2,0.2),
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE
+    ),
+      label = etiquetas
+    ) %>% 
+    
+leaflet::addControl("Overweight prevalence % 5-19 years", position = "topright") %>% 
+  leaflet::addLegend("topright", pal = pal, values = seq(from=minimo,to=maximo,by=(maximo-minimo)/20),
+    labFormat = function(type, cuts, p) {
+          n = length(cuts) 
+          x = (cuts[-n] + cuts[-1])/2
+          x=prettyNum(round(x,digits=2), big.mark = ",", scientific = FALSE)
+          as.character(x)
+        },
+    opacity = 1
+  )
+```
+
+```{r}
+minimo = tabla.paises75 %>% filter(setting != "global", indicator_name == "Thinness prevalence % 5-19 years") %>% select(estimate) %>% pull() %>% na.omit() %>% as.numeric() %>% min()
+    
+maximo = tabla.paises75 %>% filter(setting != "global", indicator_name == "Thinness prevalence % 5-19 years") %>% select(estimate) %>% pull() %>% na.omit() %>% as.numeric() %>% max()
+
+join <- left_join(geoj_ti, tabla.paises75 %>% filter(subgroup == "Male", indicator_name == "Thinness prevalence % 5-19 years", date == paste0("1978", "-01-01")), by=join_by("iso_a3" == "iso3"))
+  
+etiquetas <-paste("<strong> País: ",join$setting ,"</strong><br>% Indicator: " , join$indicator_name,"</strong> Estimate: ",round(join$estimate,2)) %>% 
+  lapply(htmltools::HTML)
+  
+pal <- colorQuantile("YlOrRd", domain=seq(from=minimo,to=maximo,by=(maximo-minimo)/20), n = 20)
+  
+geoj %>%
+    leaflet() %>%  
+    setView(lng = 125, lat = 56, zoom = 2) %>% 
+    addPolygons(
+      fillColor=~pal(join$estimate),
+    opacity = 1,
+    color = "white",
+    weight = 2,
+    dashArray = "3",
+    fillOpacity = 0.7,
+    highlightOptions = leaflet::highlightOptions( 
+      weight = 2,
+      color = rgb(0.2,0.2,0.2),
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE
+    ),
+      label = etiquetas
+    ) %>% 
+    
+leaflet::addControl("Thinness prevalence % 5-19 years", position = "topright") %>% 
+  leaflet::addLegend("topright", pal = pal, values = seq(from=minimo,to=maximo,by=(maximo-minimo)/20),
+    labFormat = function(type, cuts, p) {
+          n = length(cuts) 
+          x = (cuts[-n] + cuts[-1])/2
+          x=prettyNum(round(x,digits=2), big.mark = ",", scientific = FALSE)
+          as.character(x)
+        },
+    opacity = 1
+  )
+
+join <- left_join(geoj_ti, tabla.paises75 %>% filter(subgroup == "Male", indicator_name == "Thinness prevalence % 5-19 years", date == paste0("2015", "-01-01")), by=join_by("iso_a3" == "iso3"))
+  
+etiquetas <-paste("<strong> País: ",join$setting ,"</strong><br>% Indicator: " , join$indicator_name,"</strong> Estimate: ",round(join$estimate,2)) %>% 
+  lapply(htmltools::HTML)
+  
+pal <- colorQuantile("YlOrRd", domain=seq(from=minimo,to=maximo,by=(maximo-minimo)/20), n = 20)
+
+
+geoj %>%
+    leaflet() %>%  
+    setView(lng = 125, lat = 56, zoom = 2) %>% 
+    addPolygons(
+      fillColor=~pal(join$estimate),
+    opacity = 1,
+    color = "white",
+    weight = 2,
+    dashArray = "3",
+    fillOpacity = 0.7,
+    highlightOptions = leaflet::highlightOptions( 
+      weight = 2,
+      color = rgb(0.2,0.2,0.2),
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE
+    ),
+      label = etiquetas
+    ) %>% 
+    
+leaflet::addControl("Thinness prevalence % 5-19 years", position = "topright") %>% 
+  leaflet::addLegend("topright", pal = pal, values = seq(from=minimo,to=maximo,by=(maximo-minimo)/20),
+    labFormat = function(type, cuts, p) {
+          n = length(cuts) 
+          x = (cuts[-n] + cuts[-1])/2
+          x=prettyNum(round(x,digits=2), big.mark = ",", scientific = FALSE)
+          as.character(x)
+        },
+    opacity = 1
+  )
+```
+
+# Estudio del PIB:
+
+```{r}
+p <- Mix %>% filter(indicator_name=="PIB") %>% select(setting, date, estimate) %>% mutate(date=as.Date(paste0(date, "-01-01"))) %>% na.omit() %>% ggplot(aes(x=date, y=estimate, fill=setting, color=setting)) + geom_line() + theme_bw() + theme(axis.text.x = element_text(angle = 45,hjust=1)) + guides(color = FALSE, fill=FALSE) + labs(title="Análisis del PIB en Asia", x="Año", y="Valor estimado")
+ggplotly(p)
+```
+
+```{r}
+p <- Mix %>% filter(indicator_name=="PIBxCapita") %>% select(setting, date, estimate) %>% mutate(date=as.Date(paste0(date, "-01-01"))) %>% na.omit() %>% ggplot(aes(x=date, y=estimate, fill=setting, color=setting)) + geom_line() + theme_bw() + theme(axis.text.x = element_text(angle = 45,hjust=1)) + guides(color = FALSE, fill=FALSE) + labs(title="Análisis del PIB per cápita en Asia", x="Año", y="Valor estimado")
+ggplotly(p)
+```
+
+```{r}
+p <- Mix %>% filter(indicator_name=="Population") %>% select(setting, date, estimate) %>% mutate(date=as.Date(paste0(date, "-01-01"))) %>% na.omit() %>% ggplot(aes(x=date, y=estimate, fill=setting, color=setting)) + geom_line() + theme_bw() + theme(axis.text.x = element_text(angle = 45,hjust=1)) + guides(color = FALSE, fill=FALSE) + labs(title="Análisis de la evolución de la población en Asia", x="Año", y="Valor estimado")
+ggplotly(p)
+```
+
+Todas las variables estudiadas han ido en aumento desde los últimos 50 años. Los países en los que más aumenta el PIB son Japón y China, del PIB per cápita son Kuwait, Qatar y Singapur y con respecto a la población aumentan más China e India.
+
+Ahora estudiaremos las relaciones entre estas variables y las demás:
+
+Para la correlación entre la mortalidad infantil y el PIB per cápita se les aplicó a ambos un escalado logarítmico, dando una correlación de -0.82.
+
+Para la correlación entre la obesidad y el PIB per cápita se le aplicó al primero escalado sqrt y al segundo uno logarítmico, dando una correlación de 0.78.
+
+Para la correlación entre el sobrepeso y el PIB per cápita se le aplicó al primero escalado sqrt y al segundo uno logarítmico, dando una correlación de 0.78.
+
+Para la correlación entre la mortalidad de menores a cinco años y el PIB per cápita se les aplicó a ambos un escalado logarítmico, dando una correlación de -0.82.
+
+
+```{r}
+table <- Mix %>% na.omit() %>% filter(indicator_name %in% c("PIBxCapita", "Infant mortality rate(per 1000 births)")) %>% pivot_wider(names_from = indicator_name, values_from = estimate)
+tb <- tibble(
+  country = table$setting,
+      x = table[[which(names(table)=="PIBxCapita")]],
+      y = table[[which(names(table)=="Infant mortality rate(per 1000 births)")]]
+)
+tb <- tb %>% 
+          filter(is.na(x)!=TRUE & is.na(y)!=TRUE )
+tb$x <- log(tb$x)
+tb$y <- log(tb$y)
+fit <- lm(y ~ x,data=tb)
+a <- fit$coefficients[2]
+  b <- fit$coefficients[1]
+  p <- tb %>%
+        ggplot(aes(x,y,color=country)) + 
+        geom_point() +
+        theme(legend.position = "none") +
+        labs(x= "PIBxCapita", y= "Infant mortality rate(per 1000 births)")
+  
+  xmin <- layer_scales(p)$x$get_limits()[1]
+  xmax <- layer_scales(p)$x$get_limits()[2]
+  ymin <- layer_scales(p)$y$get_limits()[1]
+  ymax <- layer_scales(p)$y$get_limits()[2]
+  
+  if(a*xmin+b<ymin) xmin <- (ymin-b)/a
+  if(a*xmin+b>ymax) xmin <- (ymax-b)/a
+  if(a*xmax+b<ymin) xmax <- (ymin-b)/a
+  if(a*xmax+b>ymax) xmax <- (ymax-b)/a
+  
+  df <- data.frame(x1 = xmin, x2 = xmax, y1 = a*xmin+b, y2 = a*xmax+b)
+  
+  l <- p +
+        geom_segment(aes(x = x1, y = y1, xend = x2, yend = y2, color = "blue"), data = df) + theme_bw() + guides(color = FALSE, fill=FALSE) + labs(title = "Mortalidad infantil y PIB x Cápita", subtitle = "Correlación: -0.82")
+
+```
+
+```{r}
+table <- Mix %>% na.omit() %>% filter(indicator_name %in% c("PIBxCapita", "Under-five mortality rate (per 1000 births)")) %>% pivot_wider(names_from = indicator_name, values_from = estimate)
+tb <- tibble(
+  country = table$setting,
+      x = table[[which(names(table)=="PIBxCapita")]],
+      y = table[[which(names(table)=="Under-five mortality rate (per 1000 births)")]]
+)
+tb <- tb %>% 
+          filter(is.na(x)!=TRUE & is.na(y)!=TRUE )
+tb$x <- log(tb$x)
+tb$y <- log(tb$y)
+fit <- lm(y ~ x,data=tb)
+a <- fit$coefficients[2]
+  b <- fit$coefficients[1]
+  p <- tb %>%
+        ggplot(aes(x,y,color=country)) + 
+        geom_point() +
+        theme(legend.position = "none") +
+        labs(x= "PIBxCapita", y= "Under-five mortality rate (per 1000 births)")
+  
+  xmin <- layer_scales(p)$x$get_limits()[1]
+  xmax <- layer_scales(p)$x$get_limits()[2]
+  ymin <- layer_scales(p)$y$get_limits()[1]
+  ymax <- layer_scales(p)$y$get_limits()[2]
+  
+  if(a*xmin+b<ymin) xmin <- (ymin-b)/a
+  if(a*xmin+b>ymax) xmin <- (ymax-b)/a
+  if(a*xmax+b<ymin) xmax <- (ymin-b)/a
+  if(a*xmax+b>ymax) xmax <- (ymax-b)/a
+  
+  df <- data.frame(x1 = xmin, x2 = xmax, y1 = a*xmin+b, y2 = a*xmax+b)
+  
+  t <- p +
+        geom_segment(aes(x = x1, y = y1, xend = x2, yend = y2, color = "blue"), data = df) + theme_bw() + guides(color = FALSE, fill=FALSE) + labs(title = "Mortalidad menores a cinco años y PIB x Cápita", subtitle = "Correlación: -0.82")
+
+```
+
+```{r}
+table <- Mix %>% na.omit() %>% filter(indicator_name %in% c("PIBxCapita", "Obesity prevalence % 5-19 years")) %>% pivot_wider(names_from = indicator_name, values_from = estimate)
+tb <- tibble(
+  country = table$setting,
+      x = table[[which(names(table)=="PIBxCapita")]],
+      y = table[[which(names(table)=="Obesity prevalence % 5-19 years")]]
+)
+tb <- tb %>% 
+          filter(is.na(x)!=TRUE & is.na(y)!=TRUE )
+tb$x <- log(tb$x)
+tb$y <- sqrt(tb$y)
+fit <- lm(y ~ x,data=tb)
+a <- fit$coefficients[2]
+  b <- fit$coefficients[1]
+  p <- tb %>%
+        ggplot(aes(x,y,color=country)) + 
+        geom_point() +
+        theme(legend.position = "none") +
+        labs(x= "PIBxCapita", y= "Obesity prevalence % 5-19 years")
+  
+  xmin <- layer_scales(p)$x$get_limits()[1]
+  xmax <- layer_scales(p)$x$get_limits()[2]
+  ymin <- layer_scales(p)$y$get_limits()[1]
+  ymax <- layer_scales(p)$y$get_limits()[2]
+  
+  if(a*xmin+b<ymin) xmin <- (ymin-b)/a
+  if(a*xmin+b>ymax) xmin <- (ymax-b)/a
+  if(a*xmax+b<ymin) xmax <- (ymin-b)/a
+  if(a*xmax+b>ymax) xmax <- (ymax-b)/a
+  
+  df <- data.frame(x1 = xmin, x2 = xmax, y1 = a*xmin+b, y2 = a*xmax+b)
+  
+  s <- p +
+        geom_segment(aes(x = x1, y = y1, xend = x2, yend = y2, color = "blue"), data = df) + theme_bw() + guides(color = FALSE, fill=FALSE) + labs(title = "Tasa de obesidad y PIB x Cápita", subtitle = "Correlación: 0.78")
+
+```
+
+```{r}
+table <- Mix %>% na.omit() %>% filter(indicator_name %in% c("PIBxCapita", "Overweight prevalence % 5-19 years")) %>% pivot_wider(names_from = indicator_name, values_from = estimate)
+tb <- tibble(
+  country = table$setting,
+      x = table[[which(names(table)=="PIBxCapita")]],
+      y = table[[which(names(table)=="Overweight prevalence % 5-19 years")]]
+)
+tb <- tb %>% 
+          filter(is.na(x)!=TRUE & is.na(y)!=TRUE )
+tb$x <- log(tb$x)
+tb$y <- sqrt(tb$y)
+fit <- lm(y ~ x,data=tb)
+a <- fit$coefficients[2]
+  b <- fit$coefficients[1]
+  p <- tb %>%
+        ggplot(aes(x,y,color=country)) + 
+        geom_point() +
+        theme(legend.position = "none") +
+        labs(x= "PIBxCapita", y= "Overweight prevalence % 5-19 years")
+  
+  xmin <- layer_scales(p)$x$get_limits()[1]
+  xmax <- layer_scales(p)$x$get_limits()[2]
+  ymin <- layer_scales(p)$y$get_limits()[1]
+  ymax <- layer_scales(p)$y$get_limits()[2]
+  
+  if(a*xmin+b<ymin) xmin <- (ymin-b)/a
+  if(a*xmin+b>ymax) xmin <- (ymax-b)/a
+  if(a*xmax+b<ymin) xmax <- (ymin-b)/a
+  if(a*xmax+b>ymax) xmax <- (ymax-b)/a
+  
+  df <- data.frame(x1 = xmin, x2 = xmax, y1 = a*xmin+b, y2 = a*xmax+b)
+  
+  m <- p +
+        geom_segment(aes(x = x1, y = y1, xend = x2, yend = y2, color = "blue"), data = df) + theme_bw() + guides(color = FALSE, fill=FALSE) + labs(title = "Tasa de sobrepeso y PIB x Cápita", subtitle = "Correlación: 0.78")
+
+```
+
+```{r}
+wrap_plots(l, t, ncol=2)
+wrap_plots(s, m, ncol=2)
+```
+
+# Conclusiones:
+
+Asia es un continente muy polarizado en todas sus variables tal y como se puede apreciar en este estudio. El desarrollo de estos países ha sido discontinuo y muy desigual entre sí, algunos como China, Rusia o Japón han aumentado su PIB e influencia mundial muy rapidamente, mientras que otros por su situación bélica se han mantenido en un estado más precario.
+
+La manifestación de los efectos del aumento de la riqueza en un país son muy notorios y se pueden apreciar claramente en el peso de su población. Todos los países han disminuido su tasa de niños afectados por delgadez, pero solo aquellos que han sido protagonistas de este cambio abrupto del paradigma económico han reducido esta tasa a casi 0, mientras que por el contrario la tasa de obesidad y sobrepeso mantiene una proporcionalidad inversa; cada año en estos países aumentan indiscriminadamente la tasa de jovenes con estas condiciones.
+
+Otras variables que también disminuyen tanto como aumenta el desarrollo del país son la mortalidad infantil y la tasa de embarazos adolescentes.
