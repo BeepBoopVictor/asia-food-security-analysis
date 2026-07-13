@@ -4,7 +4,7 @@ Interactive data analysis of food security, public health, nutrition and socioec
 
 [![Live Report](https://img.shields.io/badge/Live%20Report-View%20Interactive%20Analysis-2563eb?style=for-the-badge)](https://beepboopvictor.github.io/asia-food-security-analysis/)
 
-![Project overview](assets/cover.png)
+![Project overview](assets/cover.PNG)
 
 ## Project overview
 
@@ -49,13 +49,13 @@ The report combines static statistical graphics with interactive visualizations 
 
 ### Geographic analysis
 
-![Interactive geographic analysis](assets/map.png)
+![Interactive geographic analysis](assets/map.PNG)
 
 The geographic visualizations make it possible to compare indicators between countries and identify spatial patterns that would be difficult to detect in traditional tables.
 
 ### Principal Component Analysis
 
-![Principal Component Analysis](assets/pca.png)
+![Principal Component Analysis](assets/pca.PNG)
 
 Principal Component Analysis was used to summarize the information contained in multiple correlated variables and explore similarities between countries.
 
